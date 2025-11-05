@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Crypto Chart</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <h1>Live Crypto Chart</h1>
+    <div id="chart"></div>
+
+    <script>
+        function fetchData() {
+            fetch('/data')
+                .then(response => response.json())
+                .then(data => {
+                    const df = JSON.parse(data);
+                    const trace = {
+                        x: df.index.map(t => new Date(t)),
+                        open: df.data.map(d => d[0]),
+                        high: df.data.map(d => d[1]),
+                        low: df.data.map(d => d[2]),
+                        close: df.data.map(d => d[3]),
+                        type: 'candlestick',
+                        name: 'Candlesticks'
+                    };
+
+                    const layout = {
+                        title: 'Live Crypto Chart',
+                        xaxis: {
+                            title: 'Date'
+                        },
+                        yaxis: {
+                            title: 'Price'
+                        }
+                    };
+
+                    Plotly.newPlot('chart', [trace], layout);
+                });
+        }
+
+        // Fetch data every 30 seconds
+        setInterval(fetchData, 30000);
+
+        // Initial fetch
+        fetchData();
+    </script>
+</body>
+</html>

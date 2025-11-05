@@ -1,9 +1,13 @@
 import pandas as pd
 import pandas_ta as ta
+import mplfinance as mpf
 import configparser
 from datetime import datetime
 import time
 from delta_rest_client import DeltaRestClient
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 class LiveChart:
     def __init__(self, config_path='config.ini'):
@@ -54,6 +58,46 @@ class LiveChart:
             df['Supertrend_Direction'] = st[f'SUPERTd_{self.atr_period}_{self.atr_multiplier}']
 
         return df
+
+    def update_chart(self):
+        """Update and display the chart"""
+
+        # Fetch new data
+        new_data = self.fetch_candles()
+        if new_data is not None:
+            self.df = new_data
+
+        # Calculate indicators
+        self.df = self.calculate_indicators(self.df)
+
+        addplot = []
+
+        # Add SMA if enabled
+        if self.show_sma:
+            addplot.extend([
+                mpf.make_addplot(self.df['SMA20'], color='blue', width=0.75),
+                mpf.make_addplot(self.df['SMA50'], color='red', width=0.75)
+            ])
+
+        # Add Supertrend if enabled
+        if self.show_supertrend:
+            addplot.append(
+                mpf.make_addplot(self.df['Supertrend'], color='green', width=1)
+            )
+
+        # Create the plot
+        filename = f"chart_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        mpf.plot(self.df,
+                type='candle',
+                style='charles',
+                title=f'{self.symbol} - {self.timeframe}',
+                addplot=addplot,
+                volume=True,
+                panel_ratios=(6,2),
+                figsize=(12,8),
+                tight_layout=True,
+                savefig=filename)
+        return filename
 
     def fetch_candles(self):
         """Fetch latest candles from Delta Exchange using traded prices"""
@@ -133,28 +177,20 @@ class LiveChart:
 
     def run(self):
         """Main loop for live chart updates"""
-        print(f"Starting live data feed for {self.symbol} on {self.timeframe} timeframe")
+        print(f"Starting live chart for {self.symbol} on {self.timeframe} timeframe")
 
         while True:
             try:
-                new_data = self.fetch_candles()
-                if new_data is not None:
-                    self.df = new_data
-                    self.df = self.calculate_indicators(self.df)
-                    print(self.df)
-
-                print(f"Data updated at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                filename = self.update_chart()
+                print(f"Chart saved to {filename} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
                 time.sleep(self.update_interval)
             except KeyboardInterrupt:
-                print("\nStopping live data feed...")
+                print("\nStopping live chart...")
                 break
             except Exception as e:
                 print(f"Error: {e}")
                 time.sleep(5)  # Wait before retrying
 
 if __name__ == "__main__":
-    print("This script fetches live cryptocurrency data and calculates technical indicators.")
-    print("Due to limitations in the execution environment, the plotting functionality has been disabled.")
-    print("You can run this script on your local machine to see the charts.")
     chart = LiveChart('config.ini')
     chart.run()
