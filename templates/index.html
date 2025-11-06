@@ -26,6 +26,14 @@
                         name: 'Candlesticks'
                     };
 
+                    const supertrendTrace = {
+                        x: df.index.map(t => new Date(t)),
+                        y: df.data.map(d => d[5]),
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: 'Supertrend'
+                    };
+
                     const layout = {
                         title: 'Live Crypto Chart',
                         xaxis: {
@@ -36,7 +44,7 @@
                         }
                     };
 
-                    Plotly.newPlot('chart', [trace], layout);
+                    Plotly.newPlot('chart', [trace, supertrendTrace], layout);
                 });
         }
 
