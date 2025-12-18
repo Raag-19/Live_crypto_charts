@@ -53,14 +53,14 @@
 
         socket.on('new_candle', function(data) {
             const update = {
-                x: [[new Date(data.candle_start_time * 1000)]],
+                x: [[new Date(data.time * 1000)]],
                 open: [[data.open]],
                 high: [[data.high]],
                 low: [[data.low]],
                 close: [[data.close]]
             };
             const supertrendUpdate = {
-                x: [[new Date(data.candle_start_time * 1000)]],
+                x: [[new Date(data.time * 1000)]],
                 y: [[data.supertrend]]
             };
 

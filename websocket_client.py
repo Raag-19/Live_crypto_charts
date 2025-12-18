@@ -5,22 +5,22 @@ import time
 
 def on_message(ws, message, socketio, symbol, timeframe, supertrend_calculator):
     data = json.loads(message)
-    if data.get('type') == f'candlestick_{timeframe}' and data.get('symbol') == symbol:
+    if data.get('type') == f"candlestick_{timeframe}" and data.get('symbol') == symbol:
         new_candle = {
             'high': data['high'],
             'low': data['low'],
             'close': data['close']
         }
         supertrend, direction = supertrend_calculator.update(new_candle)
-        data['supertrend'] = supertrend
-        data['direction'] = direction
+        data['supertrend'] = float(supertrend)
+        data['direction'] = int(direction)
         socketio.emit('new_candle', data)
 
 def on_error(ws, error):
-    print(f"WebSocket Error: {error}")
+    pass
 
 def on_close(ws, close_status_code, close_msg):
-    print(f"WebSocket closed with status: {close_status_code} and message: {close_msg}")
+    pass
 
 def on_open(ws, timeframe, symbol):
     def run(*args):
