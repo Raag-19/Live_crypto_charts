@@ -35,3 +35,23 @@ def get_candles(db_file=DB_FILE):
         df.set_index('timestamp', inplace=True)
     conn.close()
     return df
+
+def save_candle(candle_data, db_file=DB_FILE):
+    """Saves a single candle to the database."""
+    conn = get_db_connection(db_file)
+    c = conn.cursor()
+    # The websocket gives timestamp in milliseconds, the DB expects seconds
+    timestamp_s = candle_data['candle_start_time'] // 1000
+    c.execute('''
+        INSERT OR REPLACE INTO candles (timestamp, open, high, low, close, volume)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (
+        timestamp_s,
+        candle_data['open'],
+        candle_data['high'],
+        candle_data['low'],
+        candle_data['close'],
+        candle_data.get('volume', 0)
+    ))
+    conn.commit()
+    conn.close()

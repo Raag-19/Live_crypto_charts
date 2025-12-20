@@ -2,10 +2,14 @@ import websocket
 import json
 import threading
 import time
+from database import save_candle
 
 def on_message(ws, message, socketio, symbol, timeframe, supertrend_calculator):
     data = json.loads(message)
     if data.get('type') == f"candlestick_{timeframe}" and data.get('symbol') == symbol:
+        # Save the candle to the database
+        save_candle(data)
+
         new_candle = {
             'high': data['high'],
             'low': data['low'],
@@ -16,11 +20,13 @@ def on_message(ws, message, socketio, symbol, timeframe, supertrend_calculator):
         data['direction'] = int(direction)
         socketio.emit('new_candle', data)
 
+import logging
+
 def on_error(ws, error):
-    pass
+    logging.error(f"WebSocket error: {error}")
 
 def on_close(ws, close_status_code, close_msg):
-    pass
+    logging.info(f"WebSocket closed with status {close_status_code}: {close_msg}")
 
 def on_open(ws, timeframe, symbol):
     def run(*args):

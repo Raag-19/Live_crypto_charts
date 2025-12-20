@@ -50,20 +50,26 @@
 
         // Connect to the WebSocket
         const socket = io();
+        window.socket = socket; // Make socket available globally for debugging
+
+        socket.on('connect', function() {
+            console.log('Connected to WebSocket');
+        });
 
         socket.on('new_candle', function(data) {
+            console.log('Received new candle:', data);
             const update = {
-                x: [[new Date(data.candle_start_time / 1000)]],
+                x: [[new Date(data.candle_start_time)]],
                 open: [[data.open]],
                 high: [[data.high]],
                 low: [[data.low]],
                 close: [[data.close]]
             };
             const supertrendUpdate = {
-                x: [[new Date(data.candle_start_time / 1000)]],
+                x: [[new Date(data.candle_start_time)]],
                 y: [[data.supertrend]]
             };
-
+            console.log('Updating chart with:', update, supertrendUpdate);
             Plotly.extendTraces('chart', update, [0]);
             Plotly.extendTraces('chart', supertrendUpdate, [1]);
         });
