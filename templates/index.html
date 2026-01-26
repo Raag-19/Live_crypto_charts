@@ -5,54 +5,74 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Crypto Chart</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
 <body>
     <h1>Live Crypto Chart</h1>
     <div id="chart"></div>
 
     <script>
-        function fetchData() {
-            fetch('/data')
-                .then(response => response.json())
-                .then(data => {
-                    const df = JSON.parse(data);
-                    const trace = {
-                        x: df.index.map(t => new Date(t)),
-                        open: df.data.map(d => d[0]),
-                        high: df.data.map(d => d[1]),
-                        low: df.data.map(d => d[2]),
-                        close: df.data.map(d => d[3]),
-                        type: 'candlestick',
-                        name: 'Candlesticks'
-                    };
+        // Initial fetch to populate the chart
+        fetch('/data')
+            .then(response => response.json())
+            .then(data => {
+                const df = JSON.parse(data);
+                const trace = {
+                    x: df.index.map(t => new Date(t)),
+                    open: df.data.map(d => d[0]),
+                    high: df.data.map(d => d[1]),
+                    low: df.data.map(d => d[2]),
+                    close: df.data.map(d => d[3]),
+                    type: 'candlestick',
+                    name: 'Candlesticks'
+                };
 
-                    const supertrendTrace = {
-                        x: df.index.map(t => new Date(t)),
-                        y: df.data.map(d => d[5]),
-                        type: 'scatter',
-                        mode: 'lines',
-                        name: 'Supertrend'
-                    };
+                const supertrendTrace = {
+                    x: df.index.map(t => new Date(t)),
+                    y: df.data.map(d => d[5]),
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'Supertrend'
+                };
 
-                    const layout = {
-                        title: 'Live Crypto Chart',
-                        xaxis: {
-                            title: 'Date'
-                        },
-                        yaxis: {
-                            title: 'Price'
-                        }
-                    };
+                const layout = {
+                    title: 'Live Crypto Chart',
+                    xaxis: {
+                        title: 'Date'
+                    },
+                    yaxis: {
+                        title: 'Price'
+                    }
+                };
 
-                    Plotly.newPlot('chart', [trace, supertrendTrace], layout);
-                });
-        }
+                Plotly.newPlot('chart', [trace, supertrendTrace], layout);
+            });
 
-        // Fetch data every 30 seconds
-        setInterval(fetchData, 30000);
+        // Connect to the WebSocket
+        const socket = io();
+        window.socket = socket; // Make socket available globally for debugging
 
-        // Initial fetch
-        fetchData();
+        socket.on('connect', function() {
+            console.log('Connected to WebSocket');
+        });
+
+        socket.on('new_candle', function(data) {
+            console.log('Received new candle:', data);
+            const update = {
+                x: [[new Date(data.candle_start_time)]],
+                open: [[data.open]],
+                high: [[data.high]],
+                low: [[data.low]],
+                close: [[data.close]]
+            };
+            const supertrendUpdate = {
+                x: [[new Date(data.candle_start_time)]],
+                y: [[data.supertrend]]
+            };
+            console.log('Updating chart with:', update, supertrendUpdate);
+            Plotly.extendTraces('chart', update, [0]);
+            Plotly.extendTraces('chart', supertrendUpdate, [1]);
+        });
     </script>
 </body>
 </html>

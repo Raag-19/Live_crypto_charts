@@ -1,13 +1,20 @@
 from flask import Flask, render_template, jsonify
+from flask_socketio import SocketIO
 import pandas as pd
 import pandas_ta as ta
 import configparser
 from datetime import datetime
 from delta_rest_client import DeltaRestClient
+import database as db
+import websocket_client
+import threading
+from indicator_calculator import IncrementalSupertrend
 
 app = Flask(__name__)
+socketio = SocketIO(app)
+supertrend_calculator = None
 
-def get_chart_data():
+def backfill_data():
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -22,7 +29,7 @@ def get_chart_data():
 
     symbol = config['trading']['symbol']
     timeframe = config['trading']['timeframe']
-    candle_limit = config.getint('chart', 'candle_limit')
+    candle_limit = 300  # Fetch last 300 candles
 
     end_time = int(datetime.now().timestamp())
     start_time = end_time - (candle_limit * get_timeframe_seconds(timeframe))
@@ -44,14 +51,19 @@ def get_chart_data():
     candles = data['result']
     df = pd.DataFrame(candles)
 
-    df['timestamp'] = pd.to_datetime(df['time'], unit='s')
-    df.set_index('timestamp', inplace=True)
-    df = df[['open', 'high', 'low', 'close', 'volume']]
+    df.rename(columns={'time': 'timestamp'}, inplace=True)
+    df = df[['timestamp', 'open', 'high', 'low', 'close', 'volume']]
 
     for col in ['open', 'high', 'low', 'close', 'volume']:
         df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    df.sort_index(inplace=True)
+    db.replace_candles(df)
+
+def get_chart_data():
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+
+    df = db.get_candles()
 
     # Calculate indicators
     show_sma = config.getboolean('indicators', 'show_sma')
@@ -98,4 +110,24 @@ def data():
     return jsonify(df.to_json(orient='split'))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    db.init_db()
+    backfill_data()
+
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    symbol = config['trading']['symbol']
+    timeframe = config['trading']['timeframe']
+
+    df = db.get_candles()
+    atr_period = config.getint('indicators', 'atr_period')
+    atr_multiplier = config.getfloat('indicators', 'atr_multiplier')
+    supertrend_calculator = IncrementalSupertrend(df, length=atr_period, multiplier=atr_multiplier)
+
+    websocket_thread = threading.Thread(
+        target=websocket_client.start_websocket,
+        args=(socketio, timeframe, symbol, supertrend_calculator)
+    )
+    websocket_thread.daemon = True
+    websocket_thread.start()
+
+    socketio.run(app, debug=True, host='0.0.0.0', port=8080, allow_unsafe_werkzeug=True)
